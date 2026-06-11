@@ -127,9 +127,20 @@
 .site-link:focus-visible,
 .circle-button:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+textarea:focus-visible {
   outline: 2px solid #6e9ce5;
   outline-offset: 2px;
+}
+
+.cta-button:disabled,
+.outline-button:disabled,
+.gold-button:disabled,
+.dark-outline-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+  box-shadow: none;
 }
 
 .hero-section {
@@ -579,6 +590,20 @@ select:focus-visible {
   box-sizing: border-box;
 }
 
+.field-has-error input,
+.field-has-error select,
+.field-has-error textarea {
+  border-color: #cf4a4a;
+  background: #fff6f6;
+}
+
+.field-error {
+  margin: 0;
+  color: #9e2424;
+  font-size: 0.77rem;
+  font-weight: 700;
+}
+
 .will-step-help {
   margin: 8px 0 0;
   color: var(--ink-muted);
@@ -747,6 +772,12 @@ select:focus-visible {
   padding: 14px 16px;
   color: #2b3e5f;
   background: #edf4ff;
+}
+
+.notice-box-error {
+  color: #652020;
+  border: 1px solid #e4b8b8;
+  background: #fff1f1;
 }
 
 .notary-grid {
