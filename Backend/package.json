@@ -4,9 +4,15 @@
   "description": "API para generar testamentos en PDF con validaciones de entrada",
   "main": "src/server.js",
   "scripts": {
+<<<<<<< HEAD
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "test": "node -e \"console.log('No tests configured')\""
+=======
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js"
+>>>>>>> 2e0d8f237f49a3824555c94e36953984f1b6ef4f
   },
   "keywords": [],
   "author": "",
@@ -15,7 +21,9 @@
   "dependencies": {
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "mysql2": "^3.22.5",
     "pdfkit": "^0.19.1"
   },
   "devDependencies": {
