@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import SiteFooter from '../components/layout/SiteFooter'
 import {
-  dashboardCaseFiles,
   dashboardInboxItems,
   dashboardSummaryCards,
 } from '../data/mockData'
@@ -140,49 +139,6 @@ function NotaryDashboardPage() {
           </article>
         </section>
 
-        <section className="case-table-wrap">
-          <h2>Expedientes en tramite</h2>
-          <table className="case-table">
-            <thead>
-              <tr>
-                <th>Cliente / expediente</th>
-                <th>Tipo de tramite</th>
-                <th>Estado legal</th>
-                <th>Ultima actividad</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dashboardCaseFiles.map((file) => (
-                <tr key={file.id}>
-                  <td>
-                    <strong>{file.id} - {file.name}</strong>
-                    <span className="case-email">{file.email}</span>
-                  </td>
-                  <td>{file.process}</td>
-                  <td>
-                    <span className={`status-chip status-chip-${file.legalTone}`}>
-                      {file.legalStatus}
-                    </span>
-                  </td>
-                  <td>{file.lastUpdate}</td>
-                  <td className="case-actions">...</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="table-meta-row">
-            <p className="table-footnote">Mostrando 3 de 15 expedientes profesionales</p>
-            <div className="table-pager" aria-label="Paginacion">
-              <button type="button" className="pager-button" aria-label="Pagina anterior">
-                {'<'}
-              </button>
-              <button type="button" className="pager-button" aria-label="Pagina siguiente">
-                {'>'}
-              </button>
-            </div>
-          </div>
-        </section>
       </main>
 
       <SiteFooter

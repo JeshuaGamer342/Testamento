@@ -565,6 +565,25 @@ select:focus-visible {
   box-sizing: border-box;
 }
 
+.field textarea {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid #b5c6e5;
+  background: #fcfdff;
+  color: var(--ink);
+  padding: 12px 14px;
+  font-family: var(--font-base);
+  font-size: 0.95rem;
+  line-height: 1.45;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.will-step-help {
+  margin: 8px 0 0;
+  color: var(--ink-muted);
+}
+
 .field-wide {
   grid-column: 1 / -1;
 }
@@ -572,6 +591,11 @@ select:focus-visible {
 .page-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.page-actions-between {
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .register-page .page-actions {
@@ -1605,6 +1629,10 @@ select:focus-visible {
 
   .page-actions {
     justify-content: stretch;
+  }
+
+  .page-actions-between {
+    flex-direction: column;
   }
 
   .page-actions button,
