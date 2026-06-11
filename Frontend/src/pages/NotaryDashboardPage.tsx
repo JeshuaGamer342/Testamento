@@ -44,11 +44,6 @@ function NotaryDashboardPage() {
               Notaria Garcia.
             </p>
           </div>
-          <div className="dashboard-actions">
-            <button type="button" className="outline-button">
-              * Configuracion de firma
-            </button>
-          </div>
         </section>
 
         <section className="dash-stats-grid dash-stats-grid-two">
