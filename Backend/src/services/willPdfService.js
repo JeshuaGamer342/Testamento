@@ -20,6 +20,12 @@ function formatCurrentDate() {
 }
 
 function buildTemplateParagraphs(data) {
+  const hasGuardianName = Boolean(data.guardianName);
+  const hasGuardianScope = Boolean(data.guardianScope);
+  const tutoriaParagraph = hasGuardianName || hasGuardianScope
+    ? `En caso de ser necesario, designo como tutor a ${data.guardianName || 'la persona designada'}, quien se hara cargo de: ${data.guardianScope || 'lo indicado por el testador'}.`
+    : 'No se designa tutoria en este borrador; este apartado podra completarse posteriormente ante notario.';
+
   return [
     'PRIMERA. COMPARECIENTE.',
     `Yo, ${data.fullName}, nacido el ${formatBirthDate(data.birthDate)}, de nacionalidad ${data.nationality}, estado civil ${data.civilStatus}, con domicilio en ${data.address} e identificado con el documento ${data.idNumber}, declaro que otorgo este testamento de manera libre y consciente.`,
@@ -30,7 +36,7 @@ function buildTemplateParagraphs(data) {
     'CUARTA. DESIGNACION DE ALBACEA.',
     `Nombro como albacea a ${data.executorName}, con relacion o parentesco: ${data.executorRelation}, para que administre y ejecute este testamento conforme a derecho.`,
     'QUINTA. TUTORIA.',
-    `En caso de ser necesario, designo como tutor a ${data.guardianName}, quien se hara cargo de: ${data.guardianScope}.`,
+    tutoriaParagraph,
     'SEXTA. CLAUSULA FINAL.',
     'Este documento corresponde a un borrador generado digitalmente con base en la informacion proporcionada por el testador y debera revisarse y protocolizarse ante notario para su plena validez juridica.',
   ];

@@ -51,7 +51,7 @@ function NotaryRegisterAccountPage() {
           </label>
         </form>
 
-        <Link to="/panel-notarial" className="cta-button account-submit-button">
+        <Link to="/" className="cta-button account-submit-button">
           Finalizar registro
         </Link>
       </article>

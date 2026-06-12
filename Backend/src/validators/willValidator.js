@@ -23,11 +23,17 @@ const REQUIRED_FIELDS = [
   'specialLegacy',
   'executorName',
   'executorRelation',
-  'guardianName',
-  'guardianScope',
 ];
 
-const STEP_FIELDS = {
+const STEP_REQUIRED_FIELDS = {
+  1: ['fullName', 'birthDate', 'nationality', 'civilStatus', 'address', 'idNumber'],
+  2: ['heirs'],
+  3: ['specialLegacy'],
+  4: ['executorName', 'executorRelation'],
+  5: [],
+};
+
+const STEP_FORMAT_FIELDS = {
   1: ['fullName', 'birthDate', 'nationality', 'civilStatus', 'address', 'idNumber'],
   2: ['heirs'],
   3: ['specialLegacy'],
@@ -110,9 +116,10 @@ function validateWillStep(rawData, step) {
   const stepNumber = Number(step);
   const data = normalizeWillData(rawData);
   const errors = {};
-  const fieldsForStep = STEP_FIELDS[stepNumber];
+  const requiredFieldsForStep = STEP_REQUIRED_FIELDS[stepNumber];
+  const formatFieldsForStep = STEP_FORMAT_FIELDS[stepNumber];
 
-  if (!fieldsForStep) {
+  if (!requiredFieldsForStep || !formatFieldsForStep) {
     return {
       isValid: false,
       errors: {
@@ -122,8 +129,8 @@ function validateWillStep(rawData, step) {
     };
   }
 
-  pushRequiredErrors(fieldsForStep, data, errors);
-  pushFormatErrors(fieldsForStep, data, errors);
+  pushRequiredErrors(requiredFieldsForStep, data, errors);
+  pushFormatErrors(formatFieldsForStep, data, errors);
 
   return {
     isValid: Object.keys(errors).length === 0,

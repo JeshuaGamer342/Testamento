@@ -1,7 +1,95 @@
-import { Link } from 'react-router-dom'
+import { type FormEvent, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import StepProgress from '../components/shared/StepProgress'
 
+const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
+const NOTARY_CEDULA_KEY = 'notaryCedulaValidated'
+
+type SubscriptionCheckoutResponse = {
+  checkoutUrl?: string
+  message?: string
+}
+
 function NotaryRegisterPaymentPage() {
+  const navigate = useNavigate()
+  const [cardholderName, setCardholderName] = useState('')
+  const [billingEmail, setBillingEmail] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+
+  useEffect(() => {
+    const validatedCedula = sessionStorage.getItem(NOTARY_CEDULA_KEY)
+
+    if (!validatedCedula) {
+      navigate('/nuevo-notario', { replace: true })
+    }
+  }, [navigate])
+
+  if (!sessionStorage.getItem(NOTARY_CEDULA_KEY)) {
+    return null
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    setErrorMessage('')
+
+    const trimmedCardholderName = cardholderName.trim()
+    const trimmedBillingEmail = billingEmail.trim()
+
+    if (!trimmedCardholderName) {
+      setErrorMessage('Ingresa el nombre del titular antes de continuar.')
+      return
+    }
+
+    if (!trimmedBillingEmail) {
+      setErrorMessage('Ingresa el email para facturacion de la suscripcion.')
+      return
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedBillingEmail)) {
+      setErrorMessage('El email de facturacion no tiene un formato valido.')
+      return
+    }
+
+    const validatedCedula = sessionStorage.getItem(NOTARY_CEDULA_KEY) || ''
+
+    setIsSubmitting(true)
+
+    try {
+      const checkoutResponse = await fetch(
+        `${BACKEND_BASE_URL}/api/payments/notary-registration/subscription-checkout`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            cardholderName: trimmedCardholderName,
+            billingEmail: trimmedBillingEmail,
+            cedula: validatedCedula,
+          }),
+        },
+      )
+
+      const checkoutPayload =
+        (await checkoutResponse.json().catch(() => ({}))) as SubscriptionCheckoutResponse
+
+      if (!checkoutResponse.ok || typeof checkoutPayload.checkoutUrl !== 'string') {
+        setErrorMessage(
+          checkoutPayload.message || 'No se pudo iniciar el checkout de suscripcion en Stripe.',
+        )
+        return
+      }
+
+      window.location.assign(checkoutPayload.checkoutUrl)
+    } catch {
+      setErrorMessage('No fue posible conectar con el servicio de pagos. Intenta nuevamente.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
     <section className="flow-page register-page">
       <div className="register-title-wrap">
@@ -17,50 +105,48 @@ function NotaryRegisterPaymentPage() {
         className="step-progress-register"
       />
 
-      <div className="register-payment-grid">
+      <form className="register-payment-grid" onSubmit={handleSubmit} noValidate>
         <article className="form-card payment-card">
           <h2>Metodo de pago</h2>
           <p className="form-caption">
-            Seleccione su forma de pago preferida para la habilitacion de su
-            licencia notarial digital.
+            El cobro se realizara con una suscripcion de Stripe usando el precio
+            recurrente que ya configuraste en tu cuenta.
           </p>
 
           <div className="payment-methods">
             <button type="button" className="payment-method payment-method-active">
-              Tarjeta Credito/Debito
-              <small>Procesamiento inmediato</small>
-            </button>
-            <button type="button" className="payment-method">
-              Transferencia bancaria
-              <small>Validacion 24-48h</small>
+              Suscripcion con Stripe
+              <small>Cobro automatico recurrente</small>
             </button>
           </div>
 
-          <form className="form-grid payment-form" onSubmit={(event) => event.preventDefault()}>
+          <div className="form-grid payment-form">
             <label className="field field-wide">
               <span>Nombre del titular</span>
-              <input type="text" placeholder="Como aparece en la tarjeta" />
+              <input
+                type="text"
+                placeholder="Como aparece en la tarjeta"
+                value={cardholderName}
+                onChange={(event) => setCardholderName(event.target.value)}
+                autoComplete="cc-name"
+              />
             </label>
 
             <label className="field field-wide">
-              <span>Numero de tarjeta</span>
-              <input type="text" placeholder="0000 0000 0000 0000" />
+              <span>Email de facturacion</span>
+              <input
+                type="email"
+                placeholder="correo@dominio.com"
+                value={billingEmail}
+                onChange={(event) => setBillingEmail(event.target.value)}
+                autoComplete="email"
+              />
             </label>
-
-            <label className="field">
-              <span>Fecha de expiracion</span>
-              <input type="text" placeholder="MM / AA" />
-            </label>
-
-            <label className="field">
-              <span>CVC</span>
-              <input type="password" placeholder="***" />
-            </label>
-          </form>
+          </div>
 
           <p className="payment-security-note">
-            Su informacion esta protegida por encriptacion de grado bancario
-            AES-256. TestaLink no almacena sus datos bancarios completos.
+            Seras redirigido a Stripe Checkout para capturar la tarjeta de forma
+            segura y activar la suscripcion.
           </p>
         </article>
 
@@ -90,13 +176,19 @@ function NotaryRegisterPaymentPage() {
             <strong>$522.00</strong>
           </div>
 
-          <Link to="/nuevo-notario/cuenta" className="cta-button cta-large payment-next-button">
-            Continuar al Paso 3
-          </Link>
+          <button
+            type="submit"
+            className="cta-button cta-large payment-next-button payment-submit-button"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'Redirigiendo a Stripe...' : 'Continuar a Stripe'}
+          </button>
+
+          {errorMessage ? <p className="payment-status payment-status-error">{errorMessage}</p> : null}
 
           <p className="charge-secure-note">Pago 100% seguro</p>
         </aside>
-      </div>
+      </form>
     </section>
   )
 }

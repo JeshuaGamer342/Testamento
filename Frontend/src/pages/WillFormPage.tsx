@@ -48,7 +48,7 @@ const stepFields: Record<number, Array<keyof WillFormData>> = {
   2: ['heirs'],
   3: ['specialLegacy'],
   4: ['executorName', 'executorRelation'],
-  5: ['guardianName', 'guardianScope'],
+  5: [],
 }
 
 function sanitizeTextInput(value: string) {
@@ -127,6 +127,7 @@ function mapServerFieldErrors(rawErrors: unknown): FieldErrors {
 function validateStepLocally(step: number, data: WillFormData): FieldErrors {
   const errors: FieldErrors = {}
   const fields = stepFields[step] ?? []
+  const optionalFields: Array<keyof WillFormData> = step === 5 ? ['guardianName', 'guardianScope'] : []
 
   fields.forEach((field) => {
     const value = data[field]
@@ -142,6 +143,18 @@ function validateStepLocally(step: number, data: WillFormData): FieldErrors {
     }
 
     if (field !== 'birthDate' && !ALLOWED_TEXT_REGEX.test(value)) {
+      errors[field] = 'Solo se permiten letras, numeros, espacios, puntos y comas.'
+    }
+  })
+
+  optionalFields.forEach((field) => {
+    const value = data[field].trim()
+
+    if (!value) {
+      return
+    }
+
+    if (!ALLOWED_TEXT_REGEX.test(value)) {
       errors[field] = 'Solo se permiten letras, numeros, espacios, puntos y comas.'
     }
   })
@@ -524,10 +537,10 @@ function WillFormPage() {
 
     return (
       <>
-        <h2>Paso 5: Tutoria de hijos menores o mascotas</h2>
+        <h2>Paso 5: Tutoria de hijos menores o mascotas (opcional)</h2>
         <p className="will-step-help">
           En caso de que ocurra lo inesperado, quien quieres que tenga la
-          custodia de tus hijos o mascotas?
+          custodia de tus hijos o mascotas? Puedes dejar este paso en blanco.
         </p>
         <form className="form-grid" onSubmit={(event) => event.preventDefault()}>
           <label className={getFieldClassName('guardianName')}>

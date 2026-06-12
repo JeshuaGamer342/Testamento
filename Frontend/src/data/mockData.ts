@@ -1,11 +1,3 @@
-export type NotaryCard = {
-  name: string
-  office: string
-  id: string
-  city: string
-  mail: string
-}
-
 export type DashboardSummaryCard = {
   label: string
   value: string
@@ -92,51 +84,6 @@ export const metricCards = [
     title: 'Nube segura',
     subtitle: 'Acceso continuo',
     text: 'Gestiona archivos desde cualquier dispositivo.',
-  },
-]
-
-export const notaryCards: NotaryCard[] = [
-  {
-    name: 'Lic. Alejandro Villarreal',
-    office: 'Notaria No. 124',
-    id: 'PROF-9923841',
-    city: 'Ciudad de Mexico, CDMX',
-    mail: 'a.villarreal@notaria124.mx',
-  },
-  {
-    name: 'Dra. Beatriz Elena Rosales',
-    office: 'Notaria No. 42',
-    id: 'PROF-8231054',
-    city: 'Monterrey, Nuevo Leon',
-    mail: 'b.rosales@notaria42mty.com',
-  },
-  {
-    name: 'Lic. Carlos Eduardo Meza',
-    office: 'Notaria No. 15',
-    id: 'PROF-1120034',
-    city: 'Guadalajara, Jalisco',
-    mail: 'cmeza@legalservices.mx',
-  },
-  {
-    name: 'Mtra. Sofia Altamirano',
-    office: 'Notaria No. 5',
-    id: 'PROF-7744120',
-    city: 'Queretaro, QRO',
-    mail: 'saltamirano@qro-notaria5.com',
-  },
-  {
-    name: 'Lic. Roberto Mancilla',
-    office: 'Notaria No. 88',
-    id: 'PROF-6651233',
-    city: 'Puebla, Puebla',
-    mail: 'rmancilla@notariosunidos.mx',
-  },
-  {
-    name: 'Lic. Elena Garrido',
-    office: 'Notaria No. 201',
-    id: 'PROF-4422998',
-    city: 'Merida, Yucatan',
-    mail: 'egarrido@legalyuc.mx',
   },
 ]
 

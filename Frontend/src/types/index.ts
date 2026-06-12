@@ -16,3 +16,12 @@ export interface MensajeChat {
   ruta_archivo_pdf: string | null;
   enviado_en?: string;
 }
+
+export interface RecommendedNotary {
+  id: number;
+  nombreOficial: string;
+  notariaNumero: number;
+  contactoEmail: string;
+  ubicacion: string;
+  membresiaActiva: number | boolean;
+}

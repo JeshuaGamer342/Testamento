@@ -678,6 +678,24 @@ textarea:focus-visible {
   margin-top: 16px;
 }
 
+.stripe-card-input {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 10px;
+  border: 1px solid #b5c6e5;
+  background: #fcfdff;
+  color: var(--ink);
+  padding: 12px 14px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+}
+
+.field-has-error .stripe-card-input {
+  border-color: #cf4a4a;
+  background: #fff6f6;
+}
+
 .payment-security-note {
   margin: 16px 0 0;
   color: #2f4668;
@@ -726,6 +744,26 @@ textarea:focus-visible {
 .payment-next-button {
   width: 100%;
   text-align: center;
+}
+
+.payment-submit-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.payment-status {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.payment-status-error {
+  color: #9e2424;
+}
+
+.payment-status-success {
+  color: #1f6b43;
 }
 
 .charge-secure-note {
