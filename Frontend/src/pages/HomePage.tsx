@@ -1,9 +1,12 @@
 import { Link } from 'react-router-dom'
+import Breadcrumbs from '../components/layout/Breadcrumbs'
 import { metricCards, processCards, securityPoints } from '../data/mockData'
 
 function HomePage() {
   return (
     <>
+      <Breadcrumbs />
+
       <section className="hero-section">
         <div className="hero-text">
           <p className="eyebrow">Plataforma notarial digital</p>
@@ -81,9 +84,6 @@ function HomePage() {
           <Link to="/mi-testamento" className="gold-button">
             Empezar proceso ahora
           </Link>
-          <a href="#" className="dark-outline-button">
-            Consultar precios
-          </a>
         </div>
       </section>
 

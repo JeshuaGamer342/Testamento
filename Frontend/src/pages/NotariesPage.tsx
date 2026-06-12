@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import Breadcrumbs from '../components/layout/Breadcrumbs'
 import type { RecommendedNotary } from '../types'
 
 const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
@@ -26,10 +27,7 @@ function NotariesPage() {
         const payload = (await response.json().catch(() => ({}))) as RecommendedNotariesResponse
 
         if (!response.ok) {
-          if (!isMounted) {
-            return
-          }
-
+          if (!isMounted) return
           setErrorMessage(payload.message || 'No fue posible cargar los notarios recomendados.')
           return
         }
@@ -49,18 +47,18 @@ function NotariesPage() {
     }
 
     loadNotaries()
-
-    return () => {
-      isMounted = false
-    }
+    return () => { isMounted = false }
   }, [])
 
   return (
     <section className="flow-page">
+      <Breadcrumbs />
+      
       <h1>Notarios recomendados</h1>
       <p className="lead">
         Directorio de notarios para validacion de testamentos digitales.
       </p>
+      
       <article className="notice-box">
         Se recomienda primero a notarios con membresia activa y validacion
         completa de los dos formularios profesionales.

@@ -1,5 +1,6 @@
 import Cookies from 'js-cookie'
 import { useEffect, useMemo, useState } from 'react'
+import Breadcrumbs from '../components/layout/Breadcrumbs'
 import StepProgress from '../components/shared/StepProgress'
 
 type WillFormData = {
@@ -572,6 +573,7 @@ function WillFormPage() {
 
   return (
     <section className="flow-page">
+      <Breadcrumbs />
       <h1>Crea tu documento base de testamento</h1>
       <StepProgress
         steps={willSteps}

@@ -72,21 +72,22 @@ async function validateCedula(req, res, next) {
     const sepApiUrl = process.env.SEP_API_URL || DEFAULT_SEP_API_URL;
     const timeoutMs = Number(process.env.SEP_TIMEOUT_MS) || DEFAULT_SEP_TIMEOUT_MS;
 
-    const requestUrl = new URL(sepApiUrl);
-    requestUrl.searchParams.set('cedula', cedula);
-
     const abortController = new AbortController();
     const timeoutHandle = setTimeout(() => abortController.abort(), timeoutMs);
 
     let response;
 
     try {
-      response = await fetch(requestUrl.toString(), {
+      response = await fetch(sepApiUrl, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${apiKey}`,
-          Accept: 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
+        body: JSON.stringify({
+          cedula: cedula
+        }),
         signal: abortController.signal,
       });
     } finally {

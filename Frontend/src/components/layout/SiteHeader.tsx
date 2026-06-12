@@ -21,9 +21,7 @@ function SiteHeader() {
         ))}
       </nav>
       <div className="site-actions">
-        <a href="#" className="login-link">
-          Log in
-        </a>
+      
         <Link to="/mi-testamento" className="cta-button">
           Crear mi testamento
         </Link>

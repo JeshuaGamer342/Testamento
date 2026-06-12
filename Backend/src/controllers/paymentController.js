@@ -4,294 +4,98 @@ const pool = require('../config/db');
 let stripeClient = null;
 
 function getStripeClient() {
-  if (stripeClient) {
-    return stripeClient;
-  }
-
+  if (stripeClient) return stripeClient;
   const secretKey = process.env.STRIPE_SECRET_KEY;
-
-  if (!secretKey) {
-    return null;
-  }
-
+  if (!secretKey) throw new Error("STRIPE_SECRET_KEY no configurada");
   stripeClient = new Stripe(secretKey);
   return stripeClient;
 }
 
-function getCedulaFromMetadata(metadata) {
-  if (typeof metadata?.cedula !== 'string') {
-    return '';
-  }
-
-  return metadata.cedula.trim();
-}
-
-function toDateFromUnixTimestamp(unixTimestamp) {
-  if (!Number.isFinite(unixTimestamp)) {
-    return null;
-  }
-
-  return new Date(unixTimestamp * 1000);
-}
-
-function resolveMembershipExpiryDate(subscription) {
-  const status = typeof subscription?.status === 'string' ? subscription.status : '';
-
-  if (status === 'canceled' || status === 'incomplete_expired' || status === 'unpaid') {
-    return new Date();
-  }
-
-  return toDateFromUnixTimestamp(subscription?.current_period_end);
-}
-
-async function applyMembershipExpiryByCedula({ cedula, expiryDate, sourceEvent }) {
-  if (!cedula || !(expiryDate instanceof Date) || Number.isNaN(expiryDate.getTime())) {
-    return;
-  }
-
-  const [notaryRows] = await pool.query(
-    'SELECT id FROM notarios_oficial WHERE cedula_profesional = ? LIMIT 1',
-    [cedula],
-  );
-
-  if (notaryRows.length === 0) {
-    console.warn(
-      `[StripeWebhook:${sourceEvent}] No se encontro notario para cedula ${cedula}.`,
-    );
-    return;
-  }
-
-  const notaryId = notaryRows[0].id;
-  const [accessRows] = await pool.query(
-    'SELECT id FROM notarios_acceso WHERE notario_id = ? LIMIT 1',
-    [notaryId],
-  );
-
-  if (accessRows.length === 0) {
-    console.warn(
-      `[StripeWebhook:${sourceEvent}] No existe registro en notarios_acceso para notario_id ${notaryId}.`,
-    );
-    return;
-  }
-
-  await pool.query('UPDATE notarios_acceso SET pago_expira_el = ? WHERE notario_id = ?', [
-    expiryDate,
-    notaryId,
-  ]);
-}
-
-async function retrieveSubscriptionById(stripe, subscriptionId, sourceEvent) {
-  if (typeof subscriptionId !== 'string' || !subscriptionId) {
-    return null;
-  }
-
-  try {
-    return await stripe.subscriptions.retrieve(subscriptionId);
-  } catch (error) {
-    console.error(
-      `[StripeWebhook:${sourceEvent}] No se pudo recuperar la suscripcion ${subscriptionId}.`,
-      error,
-    );
-    return null;
-  }
-}
-
-async function syncMembershipFromSubscription({ stripe, subscription, fallbackCedula, sourceEvent }) {
-  let resolvedSubscription = subscription;
-
-  if (typeof subscription === 'string') {
-    resolvedSubscription = await retrieveSubscriptionById(stripe, subscription, sourceEvent);
-  }
-
-  if (!resolvedSubscription) {
-    return;
-  }
-
-  const cedula = getCedulaFromMetadata(resolvedSubscription.metadata) || fallbackCedula || '';
-  const expiryDate = resolveMembershipExpiryDate(resolvedSubscription);
-
-  await applyMembershipExpiryByCedula({
-    cedula,
-    expiryDate,
-    sourceEvent,
-  });
-}
-
-async function processStripeWebhookEvent(event, stripe) {
+// WEBHOOK: Solo actualiza el estado, NO inserta nada para evitar duplicados
+async function processStripeWebhookEvent(event) {
   const eventType = event?.type;
-
+  
   if (eventType === 'checkout.session.completed') {
     const session = event.data?.object;
+    const cedula = session.metadata?.cedula;
 
-    if (session?.mode !== 'subscription') {
-      return;
+    if (cedula) {
+      console.log(`💰 [StripeWebhook] Pago confirmado para cédula: ${cedula}. Actualizando status en BD...`);
+      
+      try {
+        // Actualizamos el estatus del notario que ya existe
+        const [result] = await pool.query(
+          'UPDATE notarios_oficial SET estatus = "pagado" WHERE cedula_profesional = ?',
+          [cedula.trim()]
+        );
+        
+        if (result.affectedRows > 0) {
+          console.log(`🚀 [Webhook] Registro ${cedula} actualizado a 'pagado'.`);
+        }
+      } catch (dbError) {
+        console.error('❌ Error en Webhook al actualizar BD:', dbError);
+        throw dbError; 
+      }
     }
-
-    await syncMembershipFromSubscription({
-      stripe,
-      subscription: session.subscription,
-      fallbackCedula: getCedulaFromMetadata(session.metadata),
-      sourceEvent: eventType,
-    });
-
-    return;
-  }
-
-  if (eventType === 'invoice.paid') {
-    const invoice = event.data?.object;
-
-    await syncMembershipFromSubscription({
-      stripe,
-      subscription: invoice?.subscription,
-      fallbackCedula: getCedulaFromMetadata(invoice?.metadata),
-      sourceEvent: eventType,
-    });
-
-    return;
-  }
-
-  if (
-    eventType === 'customer.subscription.created' ||
-    eventType === 'customer.subscription.updated' ||
-    eventType === 'customer.subscription.deleted'
-  ) {
-    const subscription = event.data?.object;
-
-    await syncMembershipFromSubscription({
-      stripe,
-      subscription,
-      fallbackCedula: '',
-      sourceEvent: eventType,
-    });
   }
 }
 
 async function createNotaryRegistrationSubscriptionCheckout(req, res, next) {
   try {
     const stripe = getStripeClient();
+    const { notaryId } = req.body;
 
-    if (!stripe) {
-      return res.status(500).json({
-        message: 'La pasarela de pago no esta configurada en el servidor.',
-      });
+    if (!notaryId) {
+      return res.status(400).json({ message: 'ID de notario requerido.' });
     }
 
-    const priceId = process.env.STRIPE_PRICE_ID;
-
-    if (!priceId) {
-      return res.status(500).json({
-        message: 'Falta configurar STRIPE_PRICE_ID para la suscripcion.',
-      });
-    }
-
+    // Obtenemos los datos del notario para asegurar que el registro existe
+    const [rows] = await pool.query('SELECT * FROM notarios_oficial WHERE id = ?', [notaryId]);
+    if (rows.length === 0) return res.status(404).json({ message: 'Notario no encontrado.' });
+    
+    const notary = rows[0];
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const successUrl =
-      process.env.STRIPE_SUCCESS_URL ||
-      `${frontendUrl}/nuevo-notario/cuenta?session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = process.env.STRIPE_CANCEL_URL || `${frontendUrl}/nuevo-notario/pago`;
-
-    const cardholderName =
-      typeof req.body?.cardholderName === 'string' ? req.body.cardholderName.trim() : '';
-    const billingEmail =
-      typeof req.body?.billingEmail === 'string' ? req.body.billingEmail.trim() : '';
-    const cedula = typeof req.body?.cedula === 'string' ? req.body.cedula.trim() : '';
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      locale: 'es',
-      ...(billingEmail ? { customer_email: billingEmail } : {}),
+      line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
+      // URLs completas con protocolo http/https
+      success_url: `${frontendUrl}/nuevo-notario/cuenta?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${frontendUrl}/nuevo-notario/pago`,
       metadata: {
-        flow: 'notary_registration_subscription',
-        ...(cardholderName ? { cardholder_name: cardholderName } : {}),
-        ...(cedula ? { cedula } : {}),
-      },
-      subscription_data: {
-        metadata: {
-          flow: 'notary_registration_subscription',
-          ...(cedula ? { cedula } : {}),
-        },
+        cedula: notary.cedula_profesional
       },
       payment_method_collection: 'always',
-      allow_promotion_codes: true,
-      billing_address_collection: 'auto',
     });
 
-    if (!session.url) {
-      return res.status(500).json({
-        message: 'No se pudo iniciar la suscripcion en Stripe Checkout.',
-      });
-    }
-
-    return res.status(200).json({
-      checkoutUrl: session.url,
-      sessionId: session.id,
-      priceId,
-      flow: 'subscription',
-    });
+    return res.status(200).json({ checkoutUrl: session.url });
   } catch (error) {
+    console.error("❌ [Checkout] Error:", error);
     return next(error);
   }
 }
 
 async function handleStripeWebhook(req, res) {
   const stripe = getStripeClient();
-
-  if (!stripe) {
-    return res.status(500).json({
-      message: 'La pasarela de pago no esta configurada en el servidor.',
-    });
-  }
-
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-  if (!webhookSecret) {
-    return res.status(500).json({
-      message: 'Falta configurar STRIPE_WEBHOOK_SECRET en el servidor.',
-    });
-  }
-
-  const stripeSignature = req.headers['stripe-signature'];
-
-  if (typeof stripeSignature !== 'string' || !stripeSignature.trim()) {
-    return res.status(400).json({
-      message: 'Cabecera stripe-signature no encontrada.',
-    });
-  }
+  const signature = req.headers['stripe-signature'];
 
   let event;
-
   try {
-    event = stripe.webhooks.constructEvent(req.body, stripeSignature, webhookSecret);
+    event = stripe.webhooks.constructEvent(req.rawBody, signature, webhookSecret);
   } catch (error) {
-    return res.status(400).json({
-      message: `Firma invalida del webhook: ${error.message}`,
-    });
+    return res.status(400).send(`Webhook Error: ${error.message}`);
   }
 
   try {
-    await processStripeWebhookEvent(event, stripe);
-
-    return res.status(200).json({
-      received: true,
-    });
+    await processStripeWebhookEvent(event);
+    return res.status(200).json({ received: true });
   } catch (error) {
-    console.error(`[StripeWebhook:${event.type}] Error al procesar evento.`, error);
-
-    return res.status(500).json({
-      message: 'No se pudo procesar el webhook de Stripe.',
-    });
+    return res.status(500).json({ message: 'Error al procesar evento.' });
   }
 }
 
-module.exports = {
-  createNotaryRegistrationSubscriptionCheckout,
-  handleStripeWebhook,
+module.exports = { 
+  createNotaryRegistrationSubscriptionCheckout, 
+  handleStripeWebhook 
 };
