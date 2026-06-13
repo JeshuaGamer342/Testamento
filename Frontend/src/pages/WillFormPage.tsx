@@ -22,9 +22,13 @@ type FieldErrors = Partial<Record<keyof WillFormData, string>>
 
 const willSteps = ['Datos', 'Herederos', 'Legado', 'Albacea', 'Tutoria']
 const WILL_FORM_COOKIE_NAME = 'willFormData'
-const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
+const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:3006'
+const MIN_REQUIRED_AGE_YEARS = 16
+const MAX_ALLOWED_AGE_YEARS = 150
 const ALLOWED_TEXT_REGEX = /^[\p{L}0-9.,\s]+$/u
+const ALLOWED_ALPHA_TEXT_REGEX = /^[\p{L}.,\s]+$/u
 const DISALLOWED_TEXT_REGEX = /[^\p{L}0-9.,\s]/gu
+const DISALLOWED_ALPHA_TEXT_REGEX = /[^\p{L}.,\s]/gu
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
 
 const defaultFormData: WillFormData = {
@@ -52,16 +56,119 @@ const stepFields: Record<number, Array<keyof WillFormData>> = {
   5: [],
 }
 
+const noNumberFields: Array<keyof WillFormData> = ['fullName', 'nationality', 'executorName', 'guardianName']
+
+function isNoNumberField(field: keyof WillFormData) {
+  return noNumberFields.includes(field)
+}
+
 function sanitizeTextInput(value: string) {
   return value.replace(DISALLOWED_TEXT_REGEX, '')
 }
 
-function getSafeString(value: unknown) {
+function sanitizeAlphaTextInput(value: string) {
+  return value.replace(DISALLOWED_ALPHA_TEXT_REGEX, '')
+}
+
+function sanitizeFieldInput(field: keyof WillFormData, value: string) {
+  if (isNoNumberField(field)) {
+    return sanitizeAlphaTextInput(value)
+  }
+
+  return sanitizeTextInput(value)
+}
+
+function getSafeString(field: keyof WillFormData, value: unknown) {
   if (typeof value !== 'string') {
     return ''
   }
 
-  return sanitizeTextInput(value)
+  return sanitizeFieldInput(field, value)
+}
+
+function parseIsoDate(value: string) {
+  if (!DATE_REGEX.test(value)) {
+    return null
+  }
+
+  const [yearPart, monthPart, dayPart] = value.split('-')
+  const year = Number(yearPart)
+  const month = Number(monthPart)
+  const day = Number(dayPart)
+  const parsedDate = new Date(Date.UTC(year, month - 1, day))
+
+  if (
+    parsedDate.getUTCFullYear() !== year ||
+    parsedDate.getUTCMonth() !== month - 1 ||
+    parsedDate.getUTCDate() !== day
+  ) {
+    return null
+  }
+
+  return parsedDate
+}
+
+function getTodayAtUtcMidnight() {
+  const now = new Date()
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+}
+
+function getOldestAllowedBirthDate(referenceDate: Date) {
+  const oldestAllowedDate = new Date(referenceDate)
+  oldestAllowedDate.setUTCFullYear(oldestAllowedDate.getUTCFullYear() - MAX_ALLOWED_AGE_YEARS)
+  return oldestAllowedDate
+}
+
+function getYoungestDisallowedBirthDate(referenceDate: Date) {
+  const youngestDisallowedDate = new Date(referenceDate)
+  youngestDisallowedDate.setUTCFullYear(youngestDisallowedDate.getUTCFullYear() - MIN_REQUIRED_AGE_YEARS)
+  return youngestDisallowedDate
+}
+
+function getLatestAllowedBirthDate(referenceDate: Date) {
+  const latestAllowedDate = getYoungestDisallowedBirthDate(referenceDate)
+  latestAllowedDate.setUTCDate(latestAllowedDate.getUTCDate() - 1)
+  return latestAllowedDate
+}
+
+function formatDateInputValue(date: Date) {
+  const year = date.getUTCFullYear()
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(date.getUTCDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function validateBirthDate(value: string): string | undefined {
+  if (!DATE_REGEX.test(value)) {
+    return 'La fecha debe tener formato YYYY-MM-DD.'
+  }
+
+  const birthDate = parseIsoDate(value)
+
+  if (!birthDate) {
+    return 'La fecha de nacimiento no es valida.'
+  }
+
+  const today = getTodayAtUtcMidnight()
+
+  if (birthDate > today) {
+    return 'La fecha de nacimiento no puede ser futura.'
+  }
+
+  const oldestAllowedDate = getOldestAllowedBirthDate(today)
+
+  if (birthDate < oldestAllowedDate) {
+    return 'La fecha de nacimiento no puede superar 150 anos.'
+  }
+
+  const youngestDisallowedDate = getYoungestDisallowedBirthDate(today)
+
+  if (birthDate >= youngestDisallowedDate) {
+    return 'La persona debe ser mayor a 16 anos.'
+  }
+
+  return undefined
 }
 
 function getSafeBirthDate(value: unknown) {
@@ -69,7 +176,9 @@ function getSafeBirthDate(value: unknown) {
     return ''
   }
 
-  return DATE_REGEX.test(value) ? value : ''
+  const normalizedValue = value.trim()
+
+  return validateBirthDate(normalizedValue) ? '' : normalizedValue
 }
 
 function getSafeCivilStatus(value: unknown) {
@@ -88,18 +197,18 @@ function buildSafeFormData(rawData: unknown): WillFormData {
   const values = rawData as Partial<Record<keyof WillFormData, unknown>>
 
   return {
-    fullName: getSafeString(values.fullName),
+    fullName: getSafeString('fullName', values.fullName),
     birthDate: getSafeBirthDate(values.birthDate),
-    nationality: getSafeString(values.nationality),
+    nationality: getSafeString('nationality', values.nationality),
     civilStatus: getSafeCivilStatus(values.civilStatus),
-    address: getSafeString(values.address),
-    idNumber: getSafeString(values.idNumber),
-    heirs: getSafeString(values.heirs),
-    specialLegacy: getSafeString(values.specialLegacy),
-    executorName: getSafeString(values.executorName),
-    executorRelation: getSafeString(values.executorRelation),
-    guardianName: getSafeString(values.guardianName),
-    guardianScope: getSafeString(values.guardianScope),
+    address: getSafeString('address', values.address),
+    idNumber: getSafeString('idNumber', values.idNumber),
+    heirs: getSafeString('heirs', values.heirs),
+    specialLegacy: getSafeString('specialLegacy', values.specialLegacy),
+    executorName: getSafeString('executorName', values.executorName),
+    executorRelation: getSafeString('executorRelation', values.executorRelation),
+    guardianName: getSafeString('guardianName', values.guardianName),
+    guardianScope: getSafeString('guardianScope', values.guardianScope),
   }
 }
 
@@ -138,12 +247,22 @@ function validateStepLocally(step: number, data: WillFormData): FieldErrors {
       return
     }
 
-    if (field === 'birthDate' && !DATE_REGEX.test(value)) {
-      errors[field] = 'La fecha debe tener formato YYYY-MM-DD.'
+    if (field === 'birthDate') {
+      const birthDateError = validateBirthDate(value)
+
+      if (birthDateError) {
+        errors[field] = birthDateError
+      }
+
       return
     }
 
-    if (field !== 'birthDate' && !ALLOWED_TEXT_REGEX.test(value)) {
+    if (isNoNumberField(field) && !ALLOWED_ALPHA_TEXT_REGEX.test(value)) {
+      errors[field] = 'Solo se permiten letras, espacios, puntos y comas.'
+      return
+    }
+
+    if (!ALLOWED_TEXT_REGEX.test(value)) {
       errors[field] = 'Solo se permiten letras, numeros, espacios, puntos y comas.'
     }
   })
@@ -152,6 +271,11 @@ function validateStepLocally(step: number, data: WillFormData): FieldErrors {
     const value = data[field].trim()
 
     if (!value) {
+      return
+    }
+
+    if (isNoNumberField(field) && !ALLOWED_ALPHA_TEXT_REGEX.test(value)) {
+      errors[field] = 'Solo se permiten letras, espacios, puntos y comas.'
       return
     }
 
@@ -194,13 +318,24 @@ function WillFormPage() {
   }, [formData])
 
   const isLastStep = currentStep === willSteps.length
+  const birthDateLimits = useMemo(() => {
+    const today = getTodayAtUtcMidnight()
+    const oldestAllowedDate = getOldestAllowedBirthDate(today)
+    const latestAllowedDate = getLatestAllowedBirthDate(today)
+
+    return {
+      min: formatDateInputValue(oldestAllowedDate),
+      max: formatDateInputValue(latestAllowedDate),
+    }
+  }, [])
+
   const completedSteps = useMemo(
     () => Array.from({ length: Math.max(currentStep - 1, 0) }, (_, index) => index + 1),
     [currentStep],
   )
 
   function updateField(field: keyof WillFormData, value: string) {
-    const safeValue = field === 'birthDate' ? value : sanitizeTextInput(value)
+    const safeValue = field === 'birthDate' ? value : sanitizeFieldInput(field, value)
 
     setDraftSaved(false)
     setFormData((previous) => ({ ...previous, [field]: safeValue }))
@@ -394,6 +529,8 @@ function WillFormPage() {
               <input
                 type="date"
                 value={formData.birthDate}
+                min={birthDateLimits.min}
+                max={birthDateLimits.max}
                 onChange={(event) => updateField('birthDate', event.target.value)}
                 disabled={isSubmitting}
               />

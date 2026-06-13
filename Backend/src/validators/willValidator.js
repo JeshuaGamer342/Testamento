@@ -41,8 +41,12 @@ const STEP_FORMAT_FIELDS = {
   5: ['guardianName', 'guardianScope'],
 };
 
+const MIN_REQUIRED_AGE_YEARS = 16;
+const MAX_ALLOWED_AGE_YEARS = 150;
 const ALLOWED_TEXT_REGEX = /^[\p{L}0-9.,\s]+$/u;
+const ALLOWED_ALPHA_TEXT_REGEX = /^[\p{L}.,\s]+$/u;
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+const NO_NUMBER_FIELDS = ['fullName', 'nationality', 'executorName', 'guardianName'];
 
 function normalizeText(value) {
   if (typeof value !== 'string') {
@@ -69,6 +73,77 @@ function normalizeWillData(rawData = {}) {
   };
 }
 
+function parseIsoDate(value) {
+  if (!DATE_REGEX.test(value)) {
+    return null;
+  }
+
+  const [yearPart, monthPart, dayPart] = value.split('-');
+  const year = Number(yearPart);
+  const month = Number(monthPart);
+  const day = Number(dayPart);
+  const parsedDate = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    parsedDate.getUTCFullYear() !== year
+    || parsedDate.getUTCMonth() !== month - 1
+    || parsedDate.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return parsedDate;
+}
+
+function getTodayAtUtcMidnight() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+function getOldestAllowedBirthDate(referenceDate) {
+  const oldestAllowedDate = new Date(referenceDate);
+  oldestAllowedDate.setUTCFullYear(oldestAllowedDate.getUTCFullYear() - MAX_ALLOWED_AGE_YEARS);
+  return oldestAllowedDate;
+}
+
+function getYoungestDisallowedBirthDate(referenceDate) {
+  const youngestDisallowedDate = new Date(referenceDate);
+  youngestDisallowedDate.setUTCFullYear(youngestDisallowedDate.getUTCFullYear() - MIN_REQUIRED_AGE_YEARS);
+  return youngestDisallowedDate;
+}
+
+function validateBirthDate(value) {
+  if (!DATE_REGEX.test(value)) {
+    return 'La fecha debe tener formato YYYY-MM-DD.';
+  }
+
+  const birthDate = parseIsoDate(value);
+
+  if (!birthDate) {
+    return 'La fecha de nacimiento no es valida.';
+  }
+
+  const today = getTodayAtUtcMidnight();
+
+  if (birthDate > today) {
+    return 'La fecha de nacimiento no puede ser futura.';
+  }
+
+  const oldestAllowedDate = getOldestAllowedBirthDate(today);
+
+  if (birthDate < oldestAllowedDate) {
+    return 'La fecha de nacimiento no puede superar 150 anos.';
+  }
+
+  const youngestDisallowedDate = getYoungestDisallowedBirthDate(today);
+
+  if (birthDate >= youngestDisallowedDate) {
+    return 'La persona debe ser mayor a 16 anos.';
+  }
+
+  return null;
+}
+
 function pushRequiredErrors(fieldsToCheck, data, errors) {
   fieldsToCheck.forEach((field) => {
     if (!data[field]) {
@@ -86,9 +161,16 @@ function pushFormatErrors(fieldsToCheck, data, errors) {
     }
 
     if (field === 'birthDate') {
-      if (!DATE_REGEX.test(value)) {
-        errors[field] = 'La fecha debe tener formato YYYY-MM-DD.';
+      const birthDateError = validateBirthDate(value);
+
+      if (birthDateError) {
+        errors[field] = birthDateError;
       }
+      return;
+    }
+
+    if (NO_NUMBER_FIELDS.includes(field) && !ALLOWED_ALPHA_TEXT_REGEX.test(value)) {
+      errors[field] = 'Solo se permiten letras, espacios, puntos y comas.';
       return;
     }
 

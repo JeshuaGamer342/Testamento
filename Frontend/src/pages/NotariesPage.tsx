@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import Breadcrumbs from '../components/layout/Breadcrumbs'
 import type { RecommendedNotary } from '../types'
 
-const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:4000'
+const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:3006'
 
 type RecommendedNotariesResponse = {
   data?: RecommendedNotary[]
