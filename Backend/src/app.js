@@ -7,7 +7,7 @@ const sepRoutes = require('./routes/sepRoutes');
 const notaryRoutes = require('./routes/notaryRoutes');
 
 const app = express();
-const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+const frontendUrl = process.env.FRONTEND_URL || 'http://jorjoto-idgs8-2.tech:5174';
 
 app.use(
   cors({
@@ -15,7 +15,6 @@ app.use(
     credentials: true,
   }),
 );
-
 // 🔒 MODIFICACIÓN DE SEGURIDAD: Configuramos express.json para capturar el cuerpo crudo (rawBody)
 // necesario únicamente para validar las firmas criptográficas de los Webhooks de Stripe.
 app.use(
